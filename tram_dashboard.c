@@ -56,6 +56,18 @@
     Feel free to modify the code below, which already implements a TCP socket consumer and dumps the content to a string & byte array
 */
 
+char tram1_loc[100];
+char tram1_passengers[10];
+
+char tram2_loc[100];
+char tram2_passengers[10];
+
+char tram3_loc[100];
+char tram3_passengers[10];
+
+char tram4_loc[100];
+char tram4_passengers[10];
+
 void error(char* msg) {
     perror(msg);
     exit(1);
@@ -71,12 +83,164 @@ void dump_buffer(char* name) {
     printf("\n\n");
     for (size_t i = 0; i < len; i++) {
         char c = name[i];
-        if (!isalpha(name[i]) && !isdigit(name[i]) && (c != '_') && (c != ' '))
-            c = '*';
+        // if (!isalpha(name[i]) && !isdigit(name[i]) && (c != '_') && (c != ' '))
+        //     c = '*';
         printf("%-5c", c);
     }
     printf("\n\n");
 }
+
+void extract_data_from_buffer(char* name) {
+	int e;
+	char tram_id[10] = "";
+	int tram_id_value = 0;
+	char passengers[10] = "";
+	char tram_loc[100] = "";
+	char msg_type[20] = "";
+	size_t len = strlen(name);
+	int next_seg_len = 0;
+
+	//First Value in the buffer should be an int
+	next_seg_len = name[0];
+
+	name = name + next_seg_len+1;
+
+	//Next value is message type, lets skip the MSG_TYPE identifier
+
+	next_seg_len = name[0];
+
+	name = name + 1;
+
+	for (size_t i = 0; i < next_seg_len; i++) {
+		msg_type[i] = name[i];
+    }
+
+    name = name+next_seg_len;
+
+    //Next value is Tram Id. First, lets skip TRAM_ID identifier.
+
+    next_seg_len = name[0];
+
+    name = name + next_seg_len+1;
+
+    next_seg_len = name[0];
+
+	name = name + 1;
+
+	for (size_t i = 0; i < next_seg_len; i++) {
+		tram_id[i] = name[i];
+    }
+
+    tram_id_value = name[5]-'0';
+
+    name = name+next_seg_len;
+
+    //Next segment is either passenger count or location. Lets skip the identifier first.
+
+    next_seg_len = name[0];
+
+	name = name + next_seg_len+1;
+
+	//Now lets remember our message type and proceed accordingly
+
+
+    if(strcmp(msg_type,"PASSENGER_COUNT") == 0) {
+    	next_seg_len = name[0];
+
+    	name = name + 1;
+
+    	for (size_t i = 0; i < next_seg_len; i++) {
+			passengers[i] = name[i];
+    	}	
+
+    	name = name + next_seg_len;
+
+    	switch(tram_id_value)
+    	{
+    		case 1:
+    			strcpy(tram1_passengers, passengers); 
+    			break;
+
+    		case 2:
+    			strcpy(tram2_passengers, passengers);
+    			break;
+
+    		case 3:
+    			strcpy(tram3_passengers, passengers);
+    			break;
+
+    		case 4:
+    			strcpy(tram4_passengers, passengers);
+    			break;
+
+    		default:
+    			printf("Unknown Tram ID");
+    	}
+
+    } else {
+    	//Is Location
+    	next_seg_len = name[0];
+
+    	name = name + 1;
+
+    	for (size_t i = 0; i < next_seg_len; i++) {
+			tram_loc[i] = name[i];
+    	}	
+
+    	name = name + next_seg_len;
+
+    	switch(tram_id_value)
+    	{
+    		case 1:
+    			strcpy(tram1_loc, tram_loc);
+    			break;
+
+    		case 2:
+    			strcpy(tram2_loc, tram_loc);
+    			break;
+
+    		case 3:
+    			strcpy(tram3_loc, tram_loc);
+    			break;
+
+    		case 4:
+    			strcpy(tram4_loc, tram_loc);
+    			break;
+
+    		default:
+    			printf("Unknown Tram ID");
+    	}
+    }
+}
+
+void display_tram_info() {
+	printf("\n========================================================\n");
+
+	printf("Tram 1:\n");
+	printf("\tLocation:%s\n", tram1_loc);
+	printf("\tPassenger Count:%s\n", tram1_passengers);
+	printf("\n\n");
+
+	printf("Tram 2:\n");
+	printf("\tLocation:%s\n", tram2_loc);
+	printf("\tPassenger Count:%s\n", tram2_passengers);
+	printf("\n\n");
+
+	printf("Tram 3:\n");
+	printf("\tLocation:%s\n", tram3_loc);
+	printf("\tPassenger Count:%s\n", tram3_passengers);
+	printf("\n\n");
+
+	printf("Tram 4:\n");
+	printf("\tLocation:%s\n", tram4_loc);
+	printf("\tPassenger Count:%s\n", tram4_passengers);
+	printf("\n\n");
+
+	printf("\n========================================================\n");
+
+
+}
+
 
 int main(int argc, char *argv[]){
 	if(argc < 2){
@@ -85,6 +249,18 @@ int main(int argc, char *argv[]){
 	}	
 	int sockfd, portno, n;
 	char buffer[255];
+
+	char tram1_loc[100] = "";
+	char tram1_passengers[10] = "";
+
+	char tram2_loc[100] = "";
+	char tram2_passengers[10] = "";
+
+	char tram3_loc[100] = "";
+	char tram3_passengers[10] = "";
+
+	char tram4_loc[100] = "";
+	char tram4_passengers[10] = "";
 	
 	struct sockaddr_in serv_addr;
 	struct hostent* server;
@@ -113,7 +289,9 @@ int main(int argc, char *argv[]){
 		n = read(sockfd, buffer, 255);
 		if(n<0)
 			error("Error reading from Server");
-		dump_buffer(buffer);
+		//dump_buffer(buffer);
+		extract_data_from_buffer(buffer);
+		display_tram_info();
 	}
 	
 	return 0;
