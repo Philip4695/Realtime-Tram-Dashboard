@@ -56,17 +56,24 @@
     Feel free to modify the code below, which already implements a TCP socket consumer and dumps the content to a string & byte array
 */
 
-char tram1_loc[100];
-char tram1_passengers[10];
+struct tramInfo {
+	char tramId[20];
+	char location[100];
+	char passengers[10];
+};
 
-char tram2_loc[100];
-char tram2_passengers[10];
+struct tramDb {
+	struct tramInfo trams[1000];
+	int numTrams;
+};
 
-char tram3_loc[100];
-char tram3_passengers[10];
+struct tramMsg {
+	char tramId[20];
+	char location[100];
+	char passengers[10];
+	char msgType[20];
+};
 
-char tram4_loc[100];
-char tram4_passengers[10];
 
 void error(char* msg) {
     perror(msg);
@@ -90,14 +97,14 @@ void dump_buffer(char* name) {
     printf("\n\n");
 }
 
-void extract_data_from_buffer(char* name) {
-	int e;
-	char tram_id[10] = "";
-	int tram_id_value = 0;
-	char passengers[10] = "";
-	char tram_loc[100] = "";
-	char msg_type[20] = "";
-	size_t len = strlen(name);
+struct tramMsg *extract_data_from_buffer(char* name, struct tramMsg *msg) {
+	// int e;
+	// char tram_id[10] = "";
+	// int tram_id_value = 0;
+	// char passengers[10] = "";
+	// char tram_loc[100] = "";
+	// char msg_type[20] = "";
+	// size_t len = strlen(name);
 	int next_seg_len = 0;
 
 	//First Value in the buffer should be an int
@@ -112,7 +119,7 @@ void extract_data_from_buffer(char* name) {
 	name = name + 1;
 
 	for (size_t i = 0; i < next_seg_len; i++) {
-		msg_type[i] = name[i];
+		msg->msgType[i] = name[i];
     }
 
     name = name+next_seg_len;
@@ -128,10 +135,8 @@ void extract_data_from_buffer(char* name) {
 	name = name + 1;
 
 	for (size_t i = 0; i < next_seg_len; i++) {
-		tram_id[i] = name[i];
+		msg->tramId[i] = name[i];
     }
-
-    tram_id_value = name[5]-'0';
 
     name = name+next_seg_len;
 
@@ -144,38 +149,16 @@ void extract_data_from_buffer(char* name) {
 	//Now lets remember our message type and proceed accordingly
 
 
-    if(strcmp(msg_type,"PASSENGER_COUNT") == 0) {
+    if(strcmp(msg->msgType,"PASSENGER_COUNT") == 0) {
     	next_seg_len = name[0];
 
     	name = name + 1;
 
     	for (size_t i = 0; i < next_seg_len; i++) {
-			passengers[i] = name[i];
-    	}	
+			msg->passengers[i] = name[i];
+    	}
 
     	name = name + next_seg_len;
-
-    	switch(tram_id_value)
-    	{
-    		case 1:
-    			strcpy(tram1_passengers, passengers); 
-    			break;
-
-    		case 2:
-    			strcpy(tram2_passengers, passengers);
-    			break;
-
-    		case 3:
-    			strcpy(tram3_passengers, passengers);
-    			break;
-
-    		case 4:
-    			strcpy(tram4_passengers, passengers);
-    			break;
-
-    		default:
-    			printf("Unknown Tram ID");
-    	}
 
     } else {
     	//Is Location
@@ -184,63 +167,71 @@ void extract_data_from_buffer(char* name) {
     	name = name + 1;
 
     	for (size_t i = 0; i < next_seg_len; i++) {
-			tram_loc[i] = name[i];
+			msg->location[i] = name[i];
     	}	
 
     	name = name + next_seg_len;
-
-    	switch(tram_id_value)
-    	{
-    		case 1:
-    			strcpy(tram1_loc, tram_loc);
-    			break;
-
-    		case 2:
-    			strcpy(tram2_loc, tram_loc);
-    			break;
-
-    		case 3:
-    			strcpy(tram3_loc, tram_loc);
-    			break;
-
-    		case 4:
-    			strcpy(tram4_loc, tram_loc);
-    			break;
-
-    		default:
-    			printf("Unknown Tram ID");
-    	}
     }
+    return msg;
 }
 
-void display_tram_info() {
-	printf("\n========================================================\n");
+void update_tram_db(struct tramDb *db, struct tramMsg *msg){
 
-	printf("Tram 1:\n");
-	printf("\tLocation:%s\n", tram1_loc);
-	printf("\tPassenger Count:%s\n", tram1_passengers);
-	printf("\n\n");
+	int id_exists = 0;
+	int element_pos = -1;
 
-	printf("Tram 2:\n");
-	printf("\tLocation:%s\n", tram2_loc);
-	printf("\tPassenger Count:%s\n", tram2_passengers);
-	printf("\n\n");
+	for(int i=0; i<db->numTrams;i++){
+		if(strcmp(msg->tramId, db->trams[i].tramId) == 0){
+			id_exists = 1;
+			element_pos = i;
+		}
+	}
 
-	printf("Tram 3:\n");
-	printf("\tLocation:%s\n", tram3_loc);
-	printf("\tPassenger Count:%s\n", tram3_passengers);
-	printf("\n\n");
-
-	printf("Tram 4:\n");
-	printf("\tLocation:%s\n", tram4_loc);
-	printf("\tPassenger Count:%s\n", tram4_passengers);
-	printf("\n\n");
-
-	printf("\n========================================================\n");
-
-
+	if(id_exists){
+		if(strcmp(msg->msgType, "LOCATION") == 0){
+			strcpy(db->trams[element_pos].location, msg->location); 
+		} else if(strcmp(msg->msgType, "PASSENGER_COUNT") == 0) {
+			strcpy(db->trams[element_pos].passengers, msg->passengers);
+		} else {
+			printf("UNKNOWN MSG TYPE\n");
+		}
+	} else {
+		strcpy(db->trams[db->numTrams].tramId, msg->tramId);
+		if(strcmp(msg->msgType, "LOCATION") == 0){
+			strcpy(db->trams[db->numTrams].location, msg->location); 
+			strcpy(db->trams[db->numTrams].passengers, "");
+		} else if(strcmp(msg->msgType, "PASSENGER_COUNT") == 0) {
+			strcpy(db->trams[db->numTrams].passengers, msg->passengers);
+			strcpy(db->trams[db->numTrams].location, "");
+		} else {
+			printf("UNKNOWN MSG TYPE\n");
+			strcpy(db->trams[db->numTrams].passengers, "");
+			strcpy(db->trams[db->numTrams].location, "");
+		}
+		db->numTrams++;
+	}
 }
 
+void display_tram_info(struct tramDb *db) {
+	printf("\n========================================================\n");
+
+
+	for(int i = 0; i < db->numTrams; i++){
+		printf("%s:\n", db->trams[i].tramId);
+		printf("\tLocation:%s\n", db->trams[i].location);
+		printf("\tPassenger Count:%s\n", db->trams[i].passengers);
+		printf("\n\n");
+	}
+	
+	printf("\n========================================================\n");
+}
+
+struct tramMsg allocTramMsg(struct tramMsg *msg){
+	strcpy(msg->tramId, "");
+	strcpy(msg->location, "");
+	strcpy(msg->passengers, "");
+	strcpy(msg->msgType, "");
+}
 
 int main(int argc, char *argv[]){
 	if(argc < 2){
@@ -249,19 +240,11 @@ int main(int argc, char *argv[]){
 	}	
 	int sockfd, portno, n;
 	char buffer[255];
+	struct tramMsg msg;
+	struct tramDb db;
+	db.numTrams = 0;
 
-	char tram1_loc[100] = "";
-	char tram1_passengers[10] = "";
 
-	char tram2_loc[100] = "";
-	char tram2_passengers[10] = "";
-
-	char tram3_loc[100] = "";
-	char tram3_passengers[10] = "";
-
-	char tram4_loc[100] = "";
-	char tram4_passengers[10] = "";
-	
 	struct sockaddr_in serv_addr;
 	struct hostent* server;
 	
@@ -290,8 +273,10 @@ int main(int argc, char *argv[]){
 		if(n<0)
 			error("Error reading from Server");
 		//dump_buffer(buffer);
-		extract_data_from_buffer(buffer);
-		display_tram_info();
+		msg = allocTramMsg(&msg);
+		extract_data_from_buffer(buffer, &msg);
+		update_tram_db(&db, &msg);
+		display_tram_info(&db);
 	}
 	
 	return 0;
